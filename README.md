@@ -13,28 +13,10 @@ reference firmware. The BLE display idea comes from that reference project,
 but this fork is focused on Codex, M5Stack StickS3, GIF pets, and a local Codex
 usage bridge.
 
-## Current Status
-
-This is a working prototype.
-
-Tested:
-
-- M5Stack StickS3 firmware build and upload.
-- BLE advertising as `Codex-XXXX`.
-- Codex usage packets sent from macOS to StickS3.
-- Portrait usage dashboard.
-- Landscape usage dashboard.
-- Landscape GIF rendering through a small canvas to avoid slow direct LCD
-  pixel drawing.
-- Local Codex plugin startup on `SessionStart` and `UserPromptSubmit`.
-- Hook diagnostics and bridge diagnostics.
-
-Not included yet:
-
-- Real Codex approval/deny handling from the StickS3 buttons. The display
-  bridge is the supported path in this version.
-- A polished public pet-generation pipeline. GIF pet creation is still a work
-  in progress.
+<p align="center">
+  <img src="docs/codex-usage-stick-landscape.jpeg" width="430" alt="Codex Usage Stick landscape dashboard">
+  <img src="docs/codex-usage-stick-portrait.jpeg" width="300" alt="Codex Usage Stick portrait dashboard">
+</p>
 
 ## What It Displays
 
@@ -68,41 +50,6 @@ Firmware dependencies are managed by PlatformIO:
 - LittleFS
 - ESP32 BLE Arduino
 
-## Repository Layout
-
-```text
-src/
-  main.cpp          StickS3 UI, state machine, usage dashboard
-  character.cpp     GIF loading, playback pacing, rendering
-  character.h       GIF character API
-  ble_bridge.cpp    Nordic UART style BLE link
-  data.h            JSON packet parsing
-
-characters/
-  bufo/             Example GIF character pack
-
-tools/
-  codex_usage_ble_bridge.py
-                    Manual Codex usage BLE bridge
-
-plugins/
-  codex-usage-stick/
-    .codex-plugin/plugin.json
-    hooks.json
-    scripts/
-      hook_entry.py
-      start_bridge.py
-      codex_usage_ble_bridge.py
-    skills/
-      codex-usage-stick/SKILL.md
-
-.agents/plugins/marketplace.json
-                    Local Codex plugin marketplace entry
-
-docs/
-  USAGE.md          Full setup and troubleshooting guide
-```
-
 ## Quick Start
 
 For a full walkthrough, use [docs/USAGE.md](docs/USAGE.md).
@@ -121,12 +68,12 @@ pio run -e m5stack-sticks3 -t upload
 PlatformIO uploads LittleFS data from `data/`. This folder is ignored by git so
 you can freely swap local pets.
 
-To upload the included `bufo` character:
+To upload the included `Mao` character:
 
 ```bash
 rm -rf data
-mkdir -p data/characters/bufo
-cp -R characters/bufo/* data/characters/bufo/
+mkdir -p data/characters/Mao
+cp -R characters/Mao/* data/characters/Mao/
 pio run -e m5stack-sticks3 -t uploadfs
 ```
 
@@ -134,8 +81,8 @@ To upload your own pet folder:
 
 ```bash
 rm -rf data
-mkdir -p data/characters/Mao
-cp -R /path/to/Mao/* data/characters/Mao/
+mkdir -p data/characters/MyPet
+cp -R /path/to/MyPet/* data/characters/MyPet/
 pio run -e m5stack-sticks3 -t uploadfs
 ```
 
@@ -224,6 +171,29 @@ A healthy log contains lines like:
 sent {"state":"busy","tokens":...,"primary":...,"secondary":...}
 ```
 
+## Current Status
+
+This is a working prototype.
+
+Tested:
+
+- M5Stack StickS3 firmware build and upload.
+- BLE advertising as `Codex-XXXX`.
+- Codex usage packets sent from macOS to StickS3.
+- Portrait usage dashboard.
+- Landscape usage dashboard.
+- Landscape GIF rendering through a small canvas to avoid slow direct LCD
+  pixel drawing.
+- Local Codex plugin startup on `SessionStart` and `UserPromptSubmit`.
+- Hook diagnostics and bridge diagnostics.
+
+Not included yet:
+
+- Real Codex approval/deny handling from the StickS3 buttons. The display
+  bridge is the supported path in this version.
+- A polished public pet-generation pipeline. GIF pet creation is still a work
+  in progress.
+
 ## Packet Format
 
 The bridge sends compact JSON over BLE:
@@ -258,7 +228,7 @@ Example:
 
 ```json
 {
-  "name": "Bufo",
+  "name": "Mao",
   "states": {
     "sleep": "sleep.gif",
     "idle": ["idle_0.gif", "idle_1.gif"],
