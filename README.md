@@ -14,8 +14,8 @@ but this fork is focused on Codex, M5Stack StickS3, GIF pets, and a local Codex
 usage bridge.
 
 <p align="center">
-  <img src="docs/codex-usage-stick-landscape.jpeg" height="360" alt="Codex Usage Stick landscape dashboard">
-  <img src="docs/codex-usage-stick-portrait.gif" height="360" alt="Codex Usage Stick portrait dashboard animation">
+  <img src="docs/codex-usage-stick-landscape.jpeg" height="500" alt="Codex Usage Stick landscape dashboard">
+  <img src="docs/codex-usage-stick-portrait.gif" height="500" alt="Codex Usage Stick portrait dashboard animation">
 </p>
 
 ## What It Displays
@@ -59,13 +59,22 @@ pio run -e m5stack-sticks3 -t upload
 PlatformIO uploads LittleFS data from `data/`. This folder is ignored by git so
 you can freely swap local pets.
 
-To upload your own pet folder:
+To upload your own pet folder, place the folder here:
+
+```text
+codex-desktop-buddy/data/characters/MyPet/
+```
+
+You can create `data/characters/` in Finder and drag the whole `MyPet` folder
+into it.
+
+If you prefer Terminal:
 
 ```bash
 cd codex-desktop-buddy
-rm -rf ./data/characters
-mkdir -p ./data/characters/MyPet
-cp -R /path/to/MyPet/* ./data/characters/MyPet/
+mkdir -p ./data/characters
+rm -rf ./data/characters/MyPet
+cp -R /path/to/MyPet ./data/characters/MyPet
 pio run -e m5stack-sticks3 -t uploadfs
 ```
 
@@ -164,7 +173,7 @@ Tested:
 - Local Codex plugin startup on `SessionStart` and `UserPromptSubmit`.
 - Hook diagnostics and bridge diagnostics.
 
-Not included yet:
+Testing:
 
 - Real Codex approval/deny handling from the StickS3 buttons. The display
   bridge is the supported path in this version.
