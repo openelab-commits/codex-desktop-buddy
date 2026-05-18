@@ -42,13 +42,12 @@ Fill the dialog like this:
 
 ```text
 Source:
-openelab-commits/claude-desktop-buddy-GIF
+openelab-commits/codex-desktop-buddy
 
 Git ref:
 main
 
 Sparse path:
-leave empty
 ```
 
 If this lives in your own fork, use your fork's `owner/repo`.
@@ -56,13 +55,13 @@ If this lives in your own fork, use your fork's `owner/repo`.
 ## CLI Fallback
 
 ```bash
-/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/claude-desktop-buddy-GIF --ref main
+/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/codex-desktop-buddy --ref main
 ```
 
 For local development:
 
 ```bash
-/Applications/Codex.app/Contents/Resources/codex plugin marketplace add /path/to/claude-desktop-buddy-GIF
+/Applications/Codex.app/Contents/Resources/codex plugin marketplace add /path/to/codex-desktop-buddy
 ```
 
 ## Enable Hooks
@@ -82,27 +81,6 @@ enabled = true
 
 Restart Codex after changing plugin settings. Approve the hook trust prompt
 when Codex shows it.
-
-## Included Skill
-
-<<<<<<< HEAD
-This plugin includes Codex skills for status, troubleshooting, and pet asset generation:
-
-```text
-skills/codex-usage-stick/SKILL.md
-skills/codex-usage-pet/SKILL.md
-```
-
-They are installed with the plugin. No separate skill installation is required.
-=======
-This plugin includes a Codex skill for status and troubleshooting:
-
-```text
-skills/codex-usage-stick/SKILL.md
-```
-
-It is installed with the plugin. No separate skill installation is required.
->>>>>>> dea2aa848667d0c4260df44081c89926be4a3074
 
 ## Dependency
 

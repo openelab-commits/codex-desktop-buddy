@@ -21,8 +21,8 @@ python3 -m pip install bleak
 ## 1. Clone The Project
 
 ```bash
-git clone https://github.com/openelab-commits/claude-desktop-buddy-GIF.git
-cd claude-desktop-buddy-GIF
+git clone https://github.com/openelab-commits/codex-desktop-buddy.git
+cd codex-desktop-buddy
 ```
 
 If you downloaded a ZIP instead, open a terminal in the extracted project
@@ -73,35 +73,13 @@ The firmware reads GIF assets from LittleFS:
 PlatformIO creates LittleFS from the local `data/` folder. This project ignores
 `data/` in git, so you create it locally before `uploadfs`.
 
-<<<<<<< HEAD
-Use the included `Mao` character:
-
-```bash
-rm -rf data
-mkdir -p data/characters/Mao
-cp -R characters/Mao/* data/characters/Mao/
-=======
-Use the included sample character:
-
-```bash
-rm -rf data
-mkdir -p data/characters/bufo
-cp -R characters/bufo/* data/characters/bufo/
->>>>>>> dea2aa848667d0c4260df44081c89926be4a3074
-pio run -e m5stack-sticks3 -t uploadfs
-```
-
 Use your own character folder:
 
 ```bash
-rm -rf data
-<<<<<<< HEAD
-mkdir -p data/characters/MyPet
-cp -R /Users/you/Downloads/MyPet/* data/characters/MyPet/
-=======
-mkdir -p data/characters/Mao
-cp -R /Users/you/Downloads/Mao/* data/characters/Mao/
->>>>>>> dea2aa848667d0c4260df44081c89926be4a3074
+cd codex-desktop-buddy
+rm -rf ./data/characters
+mkdir -p ./data/characters/MyPet
+cp -R /Users/you/Downloads/MyPet/* ./data/characters/MyPet/
 pio run -e m5stack-sticks3 -t uploadfs
 ```
 
@@ -123,13 +101,12 @@ Fill the dialog like this:
 
 ```text
 Source:
-openelab-commits/claude-desktop-buddy-GIF
+openelab-commits/codex-desktop-buddy
 
 Git ref:
 main
 
 Sparse path:
-leave empty
 ```
 
 If you are using a fork, replace the source with your own GitHub `owner/repo`.
@@ -142,13 +119,13 @@ needed.
 If the UI flow is unavailable, use:
 
 ```bash
-/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/claude-desktop-buddy-GIF --ref main
+/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/codex-desktop-buddy --ref main
 ```
 
 For local development from a cloned repo, use the local folder path:
 
 ```bash
-/Applications/Codex.app/Contents/Resources/codex plugin marketplace add /Users/you/claude-desktop-buddy-GIF
+/Applications/Codex.app/Contents/Resources/codex plugin marketplace add /Users/you/codex-desktop-buddy
 ```
 
 ### Enable Plugin Hooks
@@ -180,18 +157,6 @@ enabled = true
 ```
 
 Restart Codex after changing plugin settings.
-
-### Included Skill
-
-The plugin includes a small Codex skill for status and troubleshooting:
-
-```text
-plugins/codex-usage-stick/skills/codex-usage-stick/SKILL.md
-```
-
-It is installed with the plugin. You do not need to install a separate skill.
-After the plugin is enabled, you can ask Codex to check the Codex Usage Stick
-bridge status.
 
 ## 6. Trust The Hook
 

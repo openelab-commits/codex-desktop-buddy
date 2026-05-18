@@ -880,7 +880,7 @@ void drawInfo() {
     y += 4;
     spr.setTextColor(p.text, p.bg);
     ln("github.com/openelab");
-    ln("/claude-desktop-buddy-GIF");
+    ln("/codex-desktop-buddy");
     y += 12;
     spr.setTextColor(p.textDim, p.bg);
     ln("hardware");

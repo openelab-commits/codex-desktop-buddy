@@ -41,15 +41,6 @@ Tested target:
 M5Stack StickS3 / ESP32-S3
 ```
 
-Firmware dependencies are managed by PlatformIO:
-
-- M5Unified
-- M5GFX
-- AnimatedGIF
-- ArduinoJson
-- LittleFS
-- ESP32 BLE Arduino
-
 ## Quick Start
 
 For a full walkthrough, use [docs/USAGE.md](docs/USAGE.md).
@@ -57,8 +48,8 @@ For a full walkthrough, use [docs/USAGE.md](docs/USAGE.md).
 ### 1. Build And Flash Firmware
 
 ```bash
-git clone https://github.com/openelab-commits/claude-desktop-buddy-GIF.git
-cd claude-desktop-buddy-GIF
+git clone https://github.com/openelab-commits/codex-desktop-buddy.git
+cd codex-desktop-buddy
 pio run -e m5stack-sticks3
 pio run -e m5stack-sticks3 -t upload
 ```
@@ -68,21 +59,13 @@ pio run -e m5stack-sticks3 -t upload
 PlatformIO uploads LittleFS data from `data/`. This folder is ignored by git so
 you can freely swap local pets.
 
-To upload the included `Mao` character:
-
-```bash
-rm -rf data
-mkdir -p data/characters/Mao
-cp -R characters/Mao/* data/characters/Mao/
-pio run -e m5stack-sticks3 -t uploadfs
-```
-
 To upload your own pet folder:
 
 ```bash
-rm -rf data
-mkdir -p data/characters/MyPet
-cp -R /path/to/MyPet/* data/characters/MyPet/
+cd codex-desktop-buddy
+rm -rf ./data/characters
+mkdir -p ./data/characters/MyPet
+cp -R /path/to/MyPet/* ./data/characters/MyPet/
 pio run -e m5stack-sticks3 -t uploadfs
 ```
 
@@ -107,13 +90,12 @@ Fill the dialog like this:
 
 ```text
 Source:
-openelab-commits/claude-desktop-buddy-GIF
+openelab-commits/codex-desktop-buddy
 
 Git ref:
 main
 
 Sparse path:
-leave empty
 ```
 
 If you publish this under your own fork, use your own GitHub `owner/repo` in
@@ -128,7 +110,7 @@ Enable plugin hooks:
 CLI fallback:
 
 ```bash
-/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/claude-desktop-buddy-GIF --ref main
+/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/codex-desktop-buddy --ref main
 ```
 
 If the plugin does not enable automatically, add this to `~/.codex/config.toml`:
@@ -140,11 +122,6 @@ enabled = true
 
 Restart Codex. When Codex asks whether to trust the hook, approve it. The hook
 starts a local BLE bridge; it does not send data to an external server.
-
-The plugin also includes a small Codex skill for status and troubleshooting.
-It is installed with the plugin; no separate skill installation is required.
-You can ask Codex to check the Codex Usage Stick bridge status after the plugin
-is enabled.
 
 ### 4. Trigger The Bridge
 
