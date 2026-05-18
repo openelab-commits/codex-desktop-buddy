@@ -5,16 +5,21 @@
 #include "data.h"
 #include "buddy.h"
 
+<<<<<<< Updated upstream
 TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
+=======
+M5Canvas spr(&M5.Lcd);
+M5Canvas usagePetSpr(&M5.Lcd);
+>>>>>>> Stashed changes
 
-// Advertise as "Claude-XXXX" (last two BT MAC bytes) so multiple sticks
-// in one room are distinguishable in the desktop picker. Name persists in
+// Advertise as "Codex-XXXX" (last two BT MAC bytes) so multiple sticks
+// in one room are distinguishable in the desktop bridge. Name persists in
 // btName for the BLUETOOTH info page.
-static char btName[16] = "Claude";
+static char btName[16] = "Codex";
 static void startBt() {
   uint8_t mac[6] = {0};
   esp_read_mac(mac, ESP_MAC_BT);
-  snprintf(btName, sizeof(btName), "Claude-%02X%02X", mac[4], mac[5]);
+  snprintf(btName, sizeof(btName), "Codex-%02X%02X", mac[4], mac[5]);
   bleInit(btName);
 }
 
@@ -23,18 +28,28 @@ static void startBt() {
 const int W = 135, H = 240;
 const int CX = W / 2;
 const int CY_BASE = 120;
+<<<<<<< Updated upstream
+=======
+const int USAGE_PET_TOP = 26;
+const int USAGE_PET_H = 100;
+const int USAGE_PET_BOTTOM = USAGE_PET_TOP + USAGE_PET_H;
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+const int LED_PIN = -1;          // no user LED on StickS3
+#else
+>>>>>>> Stashed changes
 const int LED_PIN = 10;          // red LED, active-low
 
 // Colors used across multiple UI surfaces
 const uint16_t HOT   = 0xFA20;   // red-orange: warnings, impatience, deny
 const uint16_t PANEL = 0x2104;   // overlay panel background
 
-enum PersonaState { P_SLEEP, P_IDLE, P_BUSY, P_ATTENTION, P_CELEBRATE, P_DIZZY, P_HEART };
-const char* stateNames[] = { "sleep", "idle", "busy", "attention", "celebrate", "dizzy", "heart" };
+enum PersonaState { P_SLEEP, P_IDLE, P_BUSY, P_ATTENTION, P_COMPLETED, P_DIZZY, P_HEART };
+const char* stateNames[] = { "sleep", "idle", "busy", "attention", "completed", "dizzy", "heart" };
 
 TamaState    tama;
 PersonaState baseState   = P_SLEEP;
 PersonaState activeState = P_SLEEP;
+PersonaState oneShotState = P_IDLE;
 uint32_t     oneShotUntil = 0;
 uint32_t     lastShakeCheck = 0;
 float        accelBaseline = 1.0f;
@@ -54,6 +69,9 @@ const uint8_t PET_PAGES = 2;
 uint8_t msgScroll = 0;
 uint16_t lastLineGen = 0;
 char     lastPromptId[40] = "";
+bool     usageFullPushNeeded = true;
+bool     usageLiveKnown = false;
+bool     usageLastLive = false;
 uint32_t lastInteractMs = 0;
 bool     dimmed = false;
 bool     screenOff = false;
@@ -124,6 +142,13 @@ const uint8_t INFO_PG_CREDITS = 5;
 
 void applyDisplayMode() {
   bool peek = displayMode != DISP_NORMAL;
+<<<<<<< Updated upstream
+=======
+  usageFullPushNeeded = true;
+  usageLiveKnown = false;
+  characterSetPeekWindow(0, 70);
+  characterSetPeekBottomAlign(false);
+>>>>>>> Stashed changes
   characterSetPeek(peek);
   buddySetPeek(peek);
   // Clear the whole sprite on mode switch. drawInfo/drawPet clear their
@@ -408,7 +433,21 @@ static const char* const MON[] = {
 };
 static const char* const DOW[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
 
+<<<<<<< Updated upstream
 static uint8_t clockDow() { return _clkDt.WeekDay % 7; }
+=======
+static uint8_t clockDow() { return _clkDt.weekDay % 7; }
+static void tokenText(uint32_t v, char* out, size_t len) {
+  if (v >= 1000000)   snprintf(out, len, "%lu.%luM token", v / 1000000, (v / 100000) % 10);
+  else if (v >= 1000) snprintf(out, len, "%lu.%luK token", v / 1000, (v / 100) % 10);
+  else                snprintf(out, len, "%lu token", v);
+}
+
+static void clockTokenText(char* out, size_t len) {
+  tokenText(tama.tokensToday, out, len);
+}
+
+>>>>>>> Stashed changes
 static void drawClock() {
   const Palette& p = characterPalette();
   char hm[6]; snprintf(hm, sizeof(hm), "%02u:%02u", _clkTm.Hours, _clkTm.Minutes);
@@ -478,14 +517,34 @@ static void drawClock() {
 
 PersonaState derive(const TamaState& s) {
   if (!s.connected)            return P_IDLE;
-  if (s.sessionsWaiting > 0)   return P_ATTENTION;
-  if (s.recentlyCompleted)     return P_CELEBRATE;
-  if (s.sessionsRunning >= 3)  return P_BUSY;
+  if (strcmp(s.codexState, "attention") == 0) return P_ATTENTION;
+  if (strcmp(s.codexState, "completed") == 0
+   || strcmp(s.codexState, "celebrate") == 0) return P_COMPLETED;
+  if (strcmp(s.codexState, "dizzy") == 0
+   || strcmp(s.codexState, "error") == 0)     return P_DIZZY;
+  if (strcmp(s.codexState, "heart") == 0)     return P_HEART;
+  if (strcmp(s.codexState, "busy") == 0
+   || strcmp(s.codexState, "running") == 0)   return P_BUSY;
+  if (strcmp(s.codexState, "sleep") == 0)     return P_SLEEP;
   return P_IDLE;   // connected, 0+ sessions, nothing urgent — hang out
 }
 
+int statePriority(PersonaState s) {
+  switch (s) {
+    case P_ATTENTION: return 6;
+    case P_COMPLETED: return 5;
+    case P_DIZZY:     return 4;
+    case P_HEART:     return 3;
+    case P_BUSY:      return 2;
+    case P_IDLE:      return 1;
+    case P_SLEEP:
+    default:          return 0;
+  }
+}
+
 void triggerOneShot(PersonaState s, uint32_t durMs) {
-  activeState = s;
+  oneShotState = s;
+  if (statePriority(s) >= statePriority(activeState)) activeState = s;
   oneShotUntil = millis() + durMs;
 }
 
@@ -543,22 +602,20 @@ void drawInfo() {
   if (infoPage == 0) {
     _infoHeader(p, y, "ABOUT", infoPage);
     spr.setTextColor(p.textDim, p.bg);
-    ln("I watch your Claude");
-    ln("desktop sessions.");
+    ln("I watch your Codex");
+    ln("usage over BLE.");
     y += 6;
-    ln("I sleep when nothing's");
-    ln("happening, wake when");
-    ln("you start working,");
-    ln("get impatient when");
-    ln("approvals pile up.");
+    ln("The home screen shows");
+    ln("tokens plus short and");
+    ln("long usage windows.");
     y += 6;
     spr.setTextColor(p.text, p.bg);
-    ln("Press A on a prompt");
-    ln("to approve from here.");
+    ln("Primary is fixed 5h.");
+    ln("Secondary is fixed 7d.");
     y += 6;
     spr.setTextColor(p.textDim, p.bg);
-    ln("18 species. Settings");
-    ln("> ascii pet to cycle.");
+    ln("Pet GIFs are paused");
+    ln("for this first build.");
 
   } else if (infoPage == 1) {
     _infoHeader(p, y, "BUTTONS", infoPage);
@@ -575,11 +632,11 @@ void drawInfo() {
     ln("    hold 6s = off");
 
   } else if (infoPage == 2) {
-    _infoHeader(p, y, "CLAUDE", infoPage);
+    _infoHeader(p, y, "CODEX", infoPage);
     spr.setTextColor(p.textDim, p.bg);
-    ln("  sessions  %u", tama.sessionsTotal);
-    ln("  running   %u", tama.sessionsRunning);
-    ln("  waiting   %u", tama.sessionsWaiting);
+    ln("  tokens    %lu", (unsigned long)tama.codexTokens);
+    ln("  primary   %u%%", tama.codexPrimary);
+    ln("  secondary %u%%", tama.codexSecondary);
     y += 8;
     spr.setTextColor(p.text, p.bg);
     ln("LINK");
@@ -657,11 +714,12 @@ void drawInfo() {
       spr.setTextColor(p.text, p.bg);
       ln("TO PAIR");
       spr.setTextColor(p.textDim, p.bg);
-      ln(" Open Claude desktop");
-      ln(" > Developer");
-      ln(" > Hardware Buddy");
+      ln(" Start the Codex");
+      ln(" usage BLE bridge");
+      ln(" on this Mac.");
       y += 4;
-      ln(" auto-connects via BLE");
+      ln(" It writes JSON");
+      ln(" over BLE.");
     }
 
   } else {
@@ -670,20 +728,31 @@ void drawInfo() {
     ln("made by");
     y += 4;
     spr.setTextColor(p.text, p.bg);
+    ln("OpenELAB Cris");
+    y += 8;
+    spr.setTextColor(p.textDim, p.bg);
+    ln("fork from");
+    y += 4;
+    spr.setTextColor(p.text, p.bg);
     ln("Felix Rieseberg");
-    y += 12;
+    y += 10;
     spr.setTextColor(p.textDim, p.bg);
     ln("source");
     y += 4;
     spr.setTextColor(p.text, p.bg);
-    ln("github.com/anthropics");
-    ln("/claude-desktop-buddy");
+    ln("github.com/openelab");
+    ln("/claude-desktop-buddy-GIF");
     y += 12;
     spr.setTextColor(p.textDim, p.bg);
     ln("hardware");
     y += 4;
+<<<<<<< Updated upstream
     ln("M5StickC Plus");
     ln("ESP32 + AXP192");
+=======
+    ln("M5Stack StickS3");
+    ln("ESP32-S3 + M5Unified");
+>>>>>>> Stashed changes
   }
 }
 
@@ -760,10 +829,10 @@ static void drawApproval() {
   } else {
     spr.setTextColor(GREEN, p.bg);
     spr.setCursor(4, H - 12);
-    spr.print("A: approve");
+    spr.print("A: accept");
     spr.setTextColor(HOT, p.bg);
-    spr.setCursor(W - 48, H - 12);
-    spr.print("B: deny");
+    spr.setCursor(W - 54, H - 12);
+    spr.print("B: cancel");
   }
 }
 
@@ -887,6 +956,219 @@ void drawPet() {
   spr.printf("%u/%u", petPage + 1, PET_PAGES);
 }
 
+static uint16_t usageColor(uint8_t pct, const Palette& p) {
+  if (pct >= 70) return HOT;
+  if (pct >= 35) return GREEN;
+  return 0x04DF;
+}
+
+static void resetText(uint32_t resetAt, char* out, size_t len) {
+  uint32_t now = 0;
+  if (resetAt == 0 || !dataUtcNow(&now)) {
+    snprintf(out, len, "resets --");
+    return;
+  }
+
+  uint32_t left = resetAt > now ? resetAt - now : 0;
+  if (left == 0) {
+    snprintf(out, len, "reset soon");
+    return;
+  }
+  if (left >= 86400) {
+    snprintf(out, len, "resets in %lud %02luh",
+             (unsigned long)(left / 86400),
+             (unsigned long)((left / 3600) % 24));
+  } else if (left >= 3600) {
+    snprintf(out, len, "resets in %luh %02lum",
+             (unsigned long)(left / 3600),
+             (unsigned long)((left / 60) % 60));
+  } else {
+    snprintf(out, len, "resets in %lum", (unsigned long)(left / 60));
+  }
+}
+
+static void drawUsageMeterOn(lgfx::v1::LGFXBase* dst, int x, int y, int w,
+                             uint8_t pct, const char* windowLabel,
+                             uint32_t resetAt, bool live, const Palette& p) {
+  if (pct > 100) pct = 100;
+  uint16_t fill = live ? usageColor(pct, p) : p.textDim;
+  char left[8];
+  snprintf(left, sizeof(left), "%u%%", pct);
+
+  dst->setTextSize(2);
+  dst->setTextDatum(TL_DATUM);
+  dst->setTextColor(live ? p.text : p.textDim, p.bg);
+  dst->drawString(left, x, y);
+  dst->setTextDatum(TR_DATUM);
+  dst->drawString(windowLabel, x + w, y);
+
+  const int bx = x, by = y + 24, bw = w, bh = 13;
+  dst->drawRect(bx, by, bw, bh, p.textDim);
+  dst->fillRect(bx + 1, by + 1, bw - 2, bh - 2, p.bg);
+  int fw = (int)((uint32_t)(bw - 2) * pct / 100);
+  if (fw > 0) dst->fillRect(bx + 1, by + 1, fw, bh - 2, fill);
+
+  char r[24];
+  resetText(resetAt, r, sizeof(r));
+  dst->setTextSize(1);
+  dst->setTextDatum(TL_DATUM);
+  dst->setTextColor(live ? p.textDim : p.textDim, p.bg);
+  dst->drawString(r, x, y + 44);
+}
+
+static void drawUsageMeter(int y, uint8_t pct, const char* windowLabel,
+                           uint32_t resetAt, bool live, const Palette& p) {
+  drawUsageMeterOn(&spr, 8, y, W - 16, pct, windowLabel, resetAt, live, p);
+}
+
+static void drawUsageDashboard() {
+  const Palette& p = characterPalette();
+  bool live = tama.connected;
+  uint8_t primary = live ? tama.codexPrimary : 0;
+  uint8_t secondary = live ? tama.codexSecondary : 0;
+
+  if (!usageLiveKnown || usageLastLive != live) {
+    usageLiveKnown = true;
+    usageLastLive = live;
+    usageFullPushNeeded = true;
+  }
+
+  spr.fillRect(0, USAGE_PET_BOTTOM, W, H - USAGE_PET_BOTTOM, p.bg);
+
+  if (characterLoaded()) {
+    characterSetPeekWindow(USAGE_PET_TOP, USAGE_PET_H);
+    characterSetPeekBottomAlign(false);
+    characterSetPeek(true);
+    characterSetState(activeState);
+    characterTick();
+  } else {
+    spr.fillRect(0, USAGE_PET_TOP, W, USAGE_PET_H, p.bg);
+    buddySetPeek(true);
+    buddyRenderTo(&spr, activeState);
+  }
+
+  if (usageFullPushNeeded) {
+    spr.fillRect(0, 0, W, USAGE_PET_TOP, p.bg);
+    spr.setTextSize(1);
+    spr.setTextDatum(TL_DATUM);
+    spr.setTextColor(p.textDim, p.bg);
+    spr.drawString("CODEX USAGE", 8, 8);
+    spr.setTextDatum(TR_DATUM);
+    spr.setTextColor(live ? GREEN : HOT, p.bg);
+    spr.drawString(live ? "LIVE" : "WAIT", W - 8, 8);
+  }
+
+  drawUsageMeter(122, primary, "5h", live ? tama.codexPrimaryResetsAt : 0, live, p);
+  drawUsageMeter(184, secondary, "7d", live ? tama.codexSecondaryResetsAt : 0, live, p);
+
+  spr.setTextDatum(TL_DATUM);
+}
+
+static void drawUsageDashboardLandscape() {
+  const Palette& p = characterPalette();
+  bool live = tama.connected;
+  uint8_t primary = live ? tama.codexPrimary : 0;
+  uint8_t secondary = live ? tama.codexSecondary : 0;
+  uint32_t primaryReset = live ? tama.codexPrimaryResetsAt : 0;
+  uint32_t secondaryReset = live ? tama.codexSecondaryResetsAt : 0;
+
+  if (!usageLiveKnown || usageLastLive != live) {
+    usageLiveKnown = true;
+    usageLastLive = live;
+    usageFullPushNeeded = true;
+  }
+
+  M5.Lcd.setRotation(clockOrient);
+  const int lw = M5.Lcd.width();
+  const int lh = M5.Lcd.height();
+  const int leftW = 104;
+  const int rightX = leftW + 8;
+  const int rightW = lw - rightX - 8;
+
+  bool repaint = paintedOrient != clockOrient || usageFullPushNeeded;
+  if (repaint) {
+    M5.Lcd.fillScreen(p.bg);
+    paintedOrient = clockOrient;
+  }
+
+  static bool cachedLive = false;
+  static uint8_t cachedPrimary = 0xFF;
+  static uint8_t cachedSecondary = 0xFF;
+  static uint32_t cachedPrimaryReset = 0xFFFFFFFF;
+  static uint32_t cachedSecondaryReset = 0xFFFFFFFF;
+  static uint8_t cachedOrient = 0;
+  static uint8_t cachedPetState = 0xFF;
+  static int cachedPetW = 0;
+  static int cachedPetH = 0;
+  bool panelChanged = repaint
+                   || cachedOrient != clockOrient
+                   || cachedLive != live
+                   || cachedPrimary != primary
+                   || cachedSecondary != secondary
+                   || cachedPrimaryReset != primaryReset
+                   || cachedSecondaryReset != secondaryReset;
+
+  if (panelChanged) {
+    M5.Lcd.fillRect(rightX - 2, 0, rightW + 4, lh, p.bg);
+    M5.Lcd.setTextSize(1);
+    M5.Lcd.setTextDatum(TL_DATUM);
+    M5.Lcd.setTextColor(p.textDim, p.bg);
+    M5.Lcd.drawString("CODEX USAGE", rightX, 7);
+    M5.Lcd.setTextDatum(TR_DATUM);
+    M5.Lcd.setTextColor(live ? GREEN : HOT, p.bg);
+    M5.Lcd.drawString(live ? "LIVE" : "WAIT", lw - 8, 7);
+
+    drawUsageMeterOn(&M5.Lcd, rightX, 27, rightW, primary, "5h",
+                     primaryReset, live, p);
+    drawUsageMeterOn(&M5.Lcd, rightX, 81, rightW, secondary, "7d",
+                     secondaryReset, live, p);
+
+    cachedLive = live;
+    cachedPrimary = primary;
+    cachedSecondary = secondary;
+    cachedPrimaryReset = primaryReset;
+    cachedSecondaryReset = secondaryReset;
+    cachedOrient = clockOrient;
+  }
+
+  if (characterLoaded()) {
+    bool canvasChanged = false;
+    if (cachedPetW != leftW || cachedPetH != lh) {
+      usagePetSpr.deleteSprite();
+      usagePetSpr.setColorDepth(16);
+      usagePetSpr.createSprite(leftW, lh);
+      cachedPetW = usagePetSpr.width();
+      cachedPetH = usagePetSpr.height();
+      canvasChanged = true;
+    }
+
+    bool stateChanged = cachedPetState != activeState;
+    if (canvasChanged || stateChanged) usagePetSpr.fillSprite(p.bg);
+
+    characterSetState(activeState);
+    bool frameDrawn = false;
+    if (cachedPetW == leftW && cachedPetH == lh) {
+      frameDrawn = characterRenderTo(&usagePetSpr, leftW / 2, lh / 2 + 4,
+                                     58, 0, 0, leftW, lh);
+      if (repaint || canvasChanged || stateChanged || frameDrawn) {
+        usagePetSpr.pushSprite(0, 0);
+      }
+    } else {
+      characterRenderTo(&M5.Lcd, leftW / 2, lh / 2 + 4, 58, 0, 0, leftW, lh);
+    }
+    cachedPetState = activeState;
+  } else {
+    cachedPetState = 0xFF;
+    M5.Lcd.fillRect(0, 0, leftW, lh, p.bg);
+    buddySetPeek(true);
+    buddyRenderTo(&M5.Lcd, activeState);
+  }
+
+  M5.Lcd.setTextDatum(TL_DATUM);
+  M5.Lcd.setRotation(0);
+  usageFullPushNeeded = false;
+}
+
 void drawHUD() {
   if (tama.promptId[0]) { drawApproval(); return; }
   const Palette& p = characterPalette();
@@ -965,24 +1247,17 @@ void setup() {
     spr.fillSprite(p.bg);
     spr.setTextDatum(MC_DATUM);
     spr.setTextSize(2);
-    if (ownerName()[0]) {
-      char line[40];
-      snprintf(line, sizeof(line), "%s's", ownerName());
-      spr.setTextColor(p.text, p.bg);   spr.drawString(line, W/2, H/2 - 12);
-      spr.setTextColor(p.body, p.bg);   spr.drawString(petName(), W/2, H/2 + 12);
-    } else {
-      // First boot, no owner pushed yet — say hi.
-      spr.setTextColor(p.body, p.bg);   spr.drawString("Hello!", W/2, H/2 - 12);
-      spr.setTextSize(1);
-      spr.setTextColor(p.textDim, p.bg);
-      spr.drawString("a buddy appears", W/2, H/2 + 12);
-    }
+    spr.setTextColor(p.body, p.bg);
+    spr.drawString("Codex", W/2, H/2 - 12);
+    spr.setTextSize(1);
+    spr.setTextColor(p.textDim, p.bg);
+    spr.drawString("usage monitor", W/2, H/2 + 12);
     spr.setTextDatum(TL_DATUM); spr.setTextSize(1);
     spr.pushSprite(0, 0);
     delay(1800);
   }
 
-  Serial.printf("buddy: %s\n", buddyMode ? "ASCII mode" : "GIF character loaded");
+  Serial.println("codex usage monitor ready");
 }
 
 void loop() {
@@ -992,14 +1267,19 @@ void loop() {
   uint32_t now = millis();
 
   dataPoll(&tama);
-  if (statsPollLevelUp()) triggerOneShot(P_CELEBRATE, 3000);
+  if (statsPollLevelUp()) triggerOneShot(P_COMPLETED, 3000);
   baseState = derive(tama);
 
   // After waking the screen, hold sleep for 12s so users see the wake-up
-  // animation. Urgent states (attention, celebrate, busy) override this.
+  // animation. Urgent states (attention, completed, busy) override this.
   if (baseState == P_IDLE && (int32_t)(now - wakeTransitionUntil) < 0) baseState = P_SLEEP;
 
-  if ((int32_t)(now - oneShotUntil) >= 0) activeState = baseState;
+  bool oneShotActive = (int32_t)(now - oneShotUntil) < 0;
+  if (oneShotActive && statePriority(oneShotState) >= statePriority(baseState)) {
+    activeState = oneShotState;
+  } else {
+    activeState = baseState;
+  }
 
   // LED: pulse on attention, otherwise off
   if (activeState == P_ATTENTION && settings().led) {
@@ -1011,7 +1291,12 @@ void loop() {
   // shake → dizzy + force scenario advance
   if (now - lastShakeCheck > 50) {
     lastShakeCheck = now;
+<<<<<<< Updated upstream
     if (!menuOpen && !screenOff && checkShake() && (int32_t)(now - oneShotUntil) >= 0) {
+=======
+    if (!menuOpen && !settingsOpen && !resetOpen && !screenOff
+        && checkShake() && (int32_t)(now - oneShotUntil) >= 0) {
+>>>>>>> Stashed changes
       wake();
       triggerOneShot(P_DIZZY, 2000);
       Serial.println("shake: dizzy");
@@ -1078,7 +1363,7 @@ void loop() {
     if (!btnALong && !swallowBtnA) {
       if (inPrompt) {
         char cmd[96];
-        snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"once\"}", tama.promptId);
+        snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"accept\"}", tama.promptId);
         sendCmd(cmd);
         responseSent = true;
         uint32_t tookS = (millis() - promptArrivedMs) / 1000;
@@ -1097,7 +1382,7 @@ void loop() {
         menuSel = (menuSel + 1) % MENU_N;
       } else {
         beep(1800, 30);
-        displayMode = (displayMode + 1) % DISP_COUNT;
+        displayMode = (displayMode == DISP_NORMAL) ? DISP_INFO : DISP_NORMAL;
         applyDisplayMode();
       }
     }
@@ -1111,7 +1396,7 @@ void loop() {
     else
     if (inPrompt) {
       char cmd[96];
-      snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"deny\"}", tama.promptId);
+      snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"cancel\"}", tama.promptId);
       sendCmd(cmd);
       responseSent = true;
       statsOnDenial();
@@ -1134,12 +1419,13 @@ void loop() {
       applyDisplayMode();
     } else {
       beep(2400, 30);
-      msgScroll = (msgScroll >= 30) ? 0 : msgScroll + 1;
+      triggerOneShot(P_HEART, 2000);
     }
   }
 
   // blink bookkeeping
 
+<<<<<<< Updated upstream
   // Charging clock: takes over the home screen when on USB power, no
   // overlays, no prompt, no live Claude data, and the RTC has been set
   // by the bridge. Pet sleeps underneath. Exit restores Y via
@@ -1160,10 +1446,48 @@ void loop() {
   if (clocking != wasClocking || landscapeClock != wasLandscape) {
     if (clocking && !landscapeClock) characterSetPeek(true);
     else applyDisplayMode();
+=======
+  static uint32_t lastPasskey = 0;
+  uint32_t pk = blePasskey();
+  if (pk && !lastPasskey) { wake(); beep(1800, 60); }
+  lastPasskey = pk;
+
+  // Keep power/RTC cached for reset countdowns and auto-off decisions. The
+  // Codex usage dashboard stays visible on USB instead of entering clock mode.
+  clockRefreshRtc();   // 1Hz internal throttle; also caches _onUsb
+  bool clockEligible = false;
+  bool clocking = clockEligible && _onUsb;
+  bool batteryLandscapeCandidate = clockEligible && !_onUsb && !screenOff;
+  bool usageLandscapeCandidate = displayMode == DISP_NORMAL
+                              && !inPrompt
+                              && !pk
+                              && !screenOff
+                              && !napping
+                              && !resetOpen
+                              && !settingsOpen
+                              && !menuOpen;
+  if (clocking || batteryLandscapeCandidate || usageLandscapeCandidate) clockUpdateOrient();
+  else { clockOrient = 0; orientFrames = 0; paintedOrient = 0; }
+  bool landscapeClock = (clocking || batteryLandscapeCandidate) && clockOrient != 0;
+  bool landscapeUsage = usageLandscapeCandidate && clockOrient != 0 && !landscapeClock;
+
+  static bool wasClocking = false;
+  static bool wasLandscape = false;
+  static bool wasLandscapeUsage = false;
+  if (clocking != wasClocking || landscapeClock != wasLandscape || landscapeUsage != wasLandscapeUsage) {
+    if (clocking && !landscapeClock) {
+      characterSetPeekWindow(25, 80);
+      characterSetPeekBottomAlign(true);
+      characterSetPeek(true);
+    } else {
+      applyDisplayMode();
+    }
+>>>>>>> Stashed changes
     characterInvalidate();
     if (buddyMode) buddyInvalidate();
     wasClocking = clocking;
     wasLandscape = landscapeClock;
+    wasLandscapeUsage = landscapeUsage;
   }
   if (clocking) {
     uint8_t dow = clockDow();
@@ -1175,19 +1499,16 @@ void loop() {
     else if (weekend)                activeState = (now/8000 % 6 == 0) ? P_HEART : P_SLEEP;
     else if (h < 9)                  activeState = (now/6000 % 4 == 0) ? P_IDLE  : P_SLEEP;
     else if (h == 12)                activeState = (now/5000 % 3 == 0) ? P_HEART : P_IDLE;
-    else if (friday && h >= 15)      activeState = (now/4000 % 3 == 0) ? P_CELEBRATE : P_IDLE;
+    else if (friday && h >= 15)      activeState = (now/4000 % 3 == 0) ? P_COMPLETED : P_IDLE;
     else if (h >= 22 || h == 0)      activeState = (now/7000 % 3 == 0) ? P_DIZZY : P_SLEEP;
     else                             activeState = (now/10000 % 5 == 0) ? P_SLEEP : P_IDLE;
   }
 
-  static uint32_t lastPasskey = 0;
-  uint32_t pk = blePasskey();
-  if (pk && !lastPasskey) { wake(); beep(1800, 60); }
-  lastPasskey = pk;
-
-  if (napping || screenOff || landscapeClock) {
-    // skip sprite render — face-down, powered off, or landscape clock
-    // (which draws direct-to-LCD below)
+  if (napping || screenOff || landscapeClock || landscapeUsage) {
+    // Skip sprite render while direct-to-LCD landscape screens are active.
+    if (!landscapeUsage) usageFullPushNeeded = true;
+  } else if (displayMode == DISP_NORMAL) {
+    drawUsageDashboard();
   } else if (buddyMode) {
     buddyTick(activeState);
   } else if (characterLoaded()) {
@@ -1217,16 +1538,33 @@ void loop() {
   }
   if (landscapeClock) {
     drawClock();
+  } else if (landscapeUsage) {
+    drawUsageDashboardLandscape();
   } else if (!napping && !screenOff) {
     if (blePasskey()) drawPasskey();
     else if (clocking) drawClock();
     else if (displayMode == DISP_INFO) drawInfo();
     else if (displayMode == DISP_PET) drawPet();
-    else if (settings().hud) drawHUD();
+    else if (displayMode == DISP_NORMAL && tama.promptId[0]) drawApproval();
     if (resetOpen) drawReset();
     else if (settingsOpen) drawSettings();
     else if (menuOpen) drawMenu();
-    spr.pushSprite(0, 0);
+
+    bool usagePlain = displayMode == DISP_NORMAL
+                   && !tama.promptId[0]
+                   && !pk
+                   && !clocking
+                   && !resetOpen
+                   && !settingsOpen
+                   && !menuOpen;
+    if (usagePlain && !usageFullPushNeeded) {
+      M5.Lcd.setClipRect(0, USAGE_PET_TOP, W, H - USAGE_PET_TOP);
+      spr.pushSprite(0, 0);
+      M5.Lcd.clearClipRect();
+    } else {
+      spr.pushSprite(0, 0);
+    }
+    usageFullPushNeeded = !usagePlain;
   }
 
   // Face-down nap: dim immediately, pause animations, accumulate sleep time.

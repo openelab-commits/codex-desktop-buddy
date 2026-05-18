@@ -10,7 +10,7 @@ struct Palette {
 bool characterInit(const char* name);
 bool characterLoaded();
 
-// 0..6: sleep, idle, busy, attention, celebrate, dizzy, heart.
+// 0..6: sleep, idle, busy, attention, completed, dizzy, heart.
 // Closes current GIF, opens the one for this state. No-op if same state.
 void characterSetState(uint8_t state);
 
@@ -24,7 +24,18 @@ void characterClose();   // close GIF + clear loaded flag; FS stays mounted   //
 // header strip; off renders full-size centered in the upper home area.
 // Adaptive to actual canvas height — no padding required in source art.
 void characterSetPeek(bool peek);
+<<<<<<< Updated upstream
 class TFT_eSPI;
 void characterRenderTo(TFT_eSPI* tgt, int cx, int cy);
+=======
+void characterSetPeekWindow(int topY, int height);
+void characterSetPeekBottomAlign(bool bottomAlign);
+namespace lgfx { inline namespace v1 { class LGFXBase; } }
+// Renders one GIF frame to an arbitrary target when frame timing allows it.
+// Returns true only when a new frame was drawn.
+bool characterRenderTo(lgfx::v1::LGFXBase* tgt, int cx, int cy);
+bool characterRenderTo(lgfx::v1::LGFXBase* tgt, int cx, int cy, uint8_t scalePct,
+                       int minX, int minY, int maxX, int maxY);
+>>>>>>> Stashed changes
 
 const Palette& characterPalette();

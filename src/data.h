@@ -10,6 +10,12 @@ struct TamaState {
   uint8_t  sessionsWaiting;
   bool     recentlyCompleted;
   uint32_t tokensToday;
+  uint32_t codexTokens;
+  uint8_t  codexPrimary;
+  uint8_t  codexSecondary;
+  uint32_t codexPrimaryResetsAt;
+  uint32_t codexSecondaryResetsAt;
+  char     codexState[16];
   uint32_t lastUpdated;
   char     msg[24];
   bool     connected;
@@ -25,7 +31,7 @@ struct TamaState {
 // Three modes, checked in priority order:
 //   demo   → auto-cycle fake scenarios every 8s, ignore live data
 //   live   → JSON arrived in the last 10s over USB or BT
-//   asleep → no data, all zeros, "No Claude connected"
+//   asleep → no data, all zeros, "No Codex bridge"
 // ---------------------------------------------------------------------------
 
 static uint32_t _lastLiveMs = 0;
@@ -33,12 +39,16 @@ static uint32_t _lastBtByteMs = 0;   // hasClient() lies; track actual BT traffi
 static bool     _demoMode   = false;
 static uint8_t  _demoIdx    = 0;
 static uint32_t _demoNext   = 0;
+static uint32_t _utcEpochAtSync = 0;
+static uint32_t _utcSyncMs = 0;
 
-struct _Fake { const char* n; uint8_t t,r,w; bool c; uint32_t tok; };
+struct _Fake { const char* n; const char* st; uint8_t t,r,w; bool c; uint32_t tok; uint8_t p,s; };
 static const _Fake _FAKES[] = {
-  {"asleep",0,0,0,false,0}, {"one idle",1,0,0,false,12000},
-  {"busy",4,3,0,false,89000}, {"attention",2,1,1,false,45000},
-  {"completed",1,0,0,true,142000},
+  {"asleep","idle",0,0,0,false,0,0,0},
+  {"one idle","idle",1,0,0,false,12000,1,16},
+  {"busy","busy",4,3,0,false,89000,7,22},
+  {"attention","attention",2,1,1,false,45000,42,64},
+  {"completed","completed",1,0,0,true,142000,18,72},
 };
 
 inline void dataSetDemo(bool on) {
@@ -67,6 +77,38 @@ inline const char* dataScenarioName() {
 static bool _rtcValid = false;
 inline bool dataRtcValid() { return _rtcValid; }
 
+inline void dataSyncUtc(uint32_t epoch) {
+  if (epoch == 0) return;
+  _utcEpochAtSync = epoch;
+  _utcSyncMs = millis();
+}
+
+inline bool dataUtcNow(uint32_t* out) {
+  if (_utcEpochAtSync == 0) return false;
+  *out = _utcEpochAtSync + (uint32_t)((millis() - _utcSyncMs) / 1000);
+  return true;
+}
+
+static uint8_t _jsonPct(JsonVariant v, uint8_t fallback) {
+  if (v.isNull()) return fallback;
+  int n = v.as<int>();
+  if (n < 0) n = 0;
+  if (n > 100) n = 100;
+  return (uint8_t)n;
+}
+
+static void _applyPrompt(JsonVariant v, TamaState* out, bool clearIfNull) {
+  JsonObject pr = v.as<JsonObject>();
+  if (!pr.isNull()) {
+    const char* pid = pr["id"]; const char* pt = pr["tool"]; const char* ph = pr["hint"];
+    strncpy(out->promptId,   pid ? pid : "", sizeof(out->promptId)-1);   out->promptId[sizeof(out->promptId)-1]=0;
+    strncpy(out->promptTool, pt  ? pt  : "", sizeof(out->promptTool)-1); out->promptTool[sizeof(out->promptTool)-1]=0;
+    strncpy(out->promptHint, ph  ? ph  : "", sizeof(out->promptHint)-1); out->promptHint[sizeof(out->promptHint)-1]=0;
+  } else if (clearIfNull) {
+    out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
+  }
+}
+
 static void _applyJson(const char* line, TamaState* out) {
   JsonDocument doc;
   if (deserializeJson(doc, line)) return;
@@ -76,6 +118,7 @@ static void _applyJson(const char* line, TamaState* out) {
   // adjusted epoch yields local components including weekday.
   JsonArray t = doc["time"];
   if (!t.isNull() && t.size() == 2) {
+<<<<<<< Updated upstream
     time_t local = (time_t)t[0].as<uint32_t>() + (int32_t)t[1];
     struct tm lt; gmtime_r(&local, &lt);
     RTC_TimeTypeDef tm = { (uint8_t)lt.tm_hour, (uint8_t)lt.tm_min, (uint8_t)lt.tm_sec };
@@ -85,7 +128,53 @@ static void _applyJson(const char* line, TamaState* out) {
     M5.Rtc.SetDate(&dt);
     extern uint32_t _clkLastRead;
     _clkLastRead = 0;   // force re-read so _clkDt and _rtcValid agree
+=======
+    uint32_t utc = t[0].as<uint32_t>();
+    dataSyncUtc(utc);
+    time_t local = (time_t)utc + (int32_t)t[1];
+    appRtcSynced(local);
+>>>>>>> Stashed changes
     _rtcValid = true;
+    _lastLiveMs = millis();
+    return;
+  }
+
+  if (doc["now"].is<uint32_t>()) dataSyncUtc(doc["now"].as<uint32_t>());
+
+  bool codexPacket = doc["state"].is<const char*>()
+                  || doc["primary"].is<int>()
+                  || doc["secondary"].is<int>()
+                  || doc["primary_resets_at"].is<uint32_t>()
+                  || doc["secondary_resets_at"].is<uint32_t>();
+
+  if (codexPacket) {
+    const char* st = doc["state"];
+    if (!st || !*st) st = out->codexState[0] ? out->codexState : "idle";
+    strncpy(out->codexState, st, sizeof(out->codexState) - 1);
+    out->codexState[sizeof(out->codexState) - 1] = 0;
+
+    if (doc["tokens"].is<uint32_t>()) {
+      out->codexTokens = doc["tokens"].as<uint32_t>();
+      out->tokensToday = out->codexTokens;
+    }
+    out->codexPrimary = _jsonPct(doc["primary"], out->codexPrimary);
+    out->codexSecondary = _jsonPct(doc["secondary"], out->codexSecondary);
+    out->codexPrimaryResetsAt = doc["primary_resets_at"] | out->codexPrimaryResetsAt;
+    out->codexSecondaryResetsAt = doc["secondary_resets_at"] | out->codexSecondaryResetsAt;
+
+    out->sessionsRunning = strcmp(out->codexState, "busy") == 0 ? 1 : 0;
+    out->sessionsWaiting = strcmp(out->codexState, "attention") == 0 ? 1 : 0;
+    out->recentlyCompleted = strcmp(out->codexState, "completed") == 0
+                           || strcmp(out->codexState, "celebrate") == 0;
+    out->sessionsTotal = 1;
+
+    const char* m = doc["message"];
+    if (!m) m = doc["msg"];
+    if (!m) m = "Codex usage live";
+    strncpy(out->msg, m, sizeof(out->msg) - 1);
+    out->msg[sizeof(out->msg) - 1] = 0;
+
+    out->lastUpdated = millis();
     _lastLiveMs = millis();
     return;
   }
@@ -113,15 +202,7 @@ static void _applyJson(const char* line, TamaState* out) {
     }
     out->nLines = n;
   }
-  JsonObject pr = doc["prompt"];
-  if (!pr.isNull()) {
-    const char* pid = pr["id"]; const char* pt = pr["tool"]; const char* ph = pr["hint"];
-    strncpy(out->promptId,   pid ? pid : "", sizeof(out->promptId)-1);   out->promptId[sizeof(out->promptId)-1]=0;
-    strncpy(out->promptTool, pt  ? pt  : "", sizeof(out->promptTool)-1); out->promptTool[sizeof(out->promptTool)-1]=0;
-    strncpy(out->promptHint, ph  ? ph  : "", sizeof(out->promptHint)-1); out->promptHint[sizeof(out->promptHint)-1]=0;
-  } else {
-    out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
-  }
+  _applyPrompt(doc["prompt"], out, true);
   out->lastUpdated = millis();
   _lastLiveMs = millis();
 }
@@ -152,6 +233,15 @@ inline void dataPoll(TamaState* out) {
     const _Fake& s = _FAKES[_demoIdx];
     out->sessionsTotal=s.t; out->sessionsRunning=s.r; out->sessionsWaiting=s.w;
     out->recentlyCompleted=s.c; out->tokensToday=s.tok; out->lastUpdated=now;
+    out->codexTokens=s.tok; out->codexPrimary=s.p; out->codexSecondary=s.s;
+    if (_utcEpochAtSync == 0) dataSyncUtc(now / 1000);
+    uint32_t utcNow = 0;
+    if (dataUtcNow(&utcNow)) {
+      out->codexPrimaryResetsAt = utcNow + 4 * 3600 + 32 * 60;
+      out->codexSecondaryResetsAt = utcNow + 5 * 86400 + 12 * 3600;
+    }
+    strncpy(out->codexState, s.st, sizeof(out->codexState) - 1);
+    out->codexState[sizeof(out->codexState) - 1] = 0;
     out->connected = true;
     snprintf(out->msg, sizeof(out->msg), "demo: %s", s.n);
     return;
@@ -178,7 +268,7 @@ inline void dataPoll(TamaState* out) {
   if (!out->connected) {
     out->sessionsTotal=0; out->sessionsRunning=0; out->sessionsWaiting=0;
     out->recentlyCompleted=false; out->lastUpdated=now;
-    strncpy(out->msg, "No Claude connected", sizeof(out->msg)-1);
+    strncpy(out->msg, "No Codex bridge", sizeof(out->msg)-1);
     out->msg[sizeof(out->msg)-1]=0;
   }
 }
