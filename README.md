@@ -15,7 +15,7 @@ usage bridge.
 
 <p align="center">
   <img src="docs/codex-usage-stick-landscape.jpeg" width="430" alt="Codex Usage Stick landscape dashboard">
-  <img src="docs/codex-usage-stick-portrait.jpeg" width="430" alt="Codex Usage Stick portrait dashboard">
+  <img src="docs/codex-usage-stick-portrait.gif" width="430" alt="Codex Usage Stick portrait dashboard animation">
 </p>
 
 ## What It Displays
