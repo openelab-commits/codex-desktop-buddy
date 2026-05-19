@@ -134,11 +134,6 @@ Enable plugin hooks on bash:
 /Applications/Codex.app/Contents/Resources/codex features enable plugin_hooks
 ```
 
-CLI fallback:
-
-```bash
-/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/codex-desktop-buddy --ref main
-```
 
  Confirm the plugin is enabled:
 
@@ -166,6 +161,12 @@ enabled = true
 
 Restart Codex. When Codex asks whether to trust the hook, approve it. The hook
 starts a local BLE bridge; it does not send data to an external server.
+
+CLI fallback:
+
+```bash
+/Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/codex-desktop-buddy --ref main
+```
 
 ### 4. Trigger The Bridge
 
