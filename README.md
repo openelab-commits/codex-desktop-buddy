@@ -117,7 +117,18 @@ Choose `Codex Usage Stick Local` and add it.
 If you publish this under your own fork, use your own GitHub `owner/repo` in
 the `Source` field.
 
-Enable plugin hooks:
+Make plugin_hooks = true on bash:
+
+```bash
+/Applications/Codex.app/Contents/Resources/codex features list | grep plugin_hooks
+```
+
+if it turns out:
+```bash
+plugin_hooks    under development    true
+```
+plugin_hooks = true, if not
+Enable plugin hooks on bash:
 
 ```bash
 /Applications/Codex.app/Contents/Resources/codex features enable plugin_hooks
@@ -129,7 +140,24 @@ CLI fallback:
 /Applications/Codex.app/Contents/Resources/codex plugin marketplace add openelab-commits/codex-desktop-buddy --ref main
 ```
 
+ Confirm the plugin is enabled:
+
+```bash
+grep -n 'codex-usage-stick' ~/.codex/config.toml
+```
+Normally turn out:
+```bash
+[plugins."codex-usage-stick@codex-usage-stick-marketplace"]
+enabled = true
+```
+
 If the plugin does not enable automatically, add this to `~/.codex/config.toml`:
+
+```bash
+open -a TextEdit ~/.codex/config.toml
+```
+
+add this at the end:
 
 ```toml
 [plugins."codex-usage-stick@codex-usage-stick-marketplace"]
